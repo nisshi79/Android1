@@ -1,293 +1,48 @@
-/*
-* Copyright (C) 2010 The Android Open Source Project
-*
-* Apache License Version 2.0 (u–{ƒ‰ƒCƒZƒ“ƒXv) ‚ÉŠî‚Ã‚¢‚Äƒ‰ƒCƒZƒ“ƒX‚³‚ê‚Ü‚·B;
-* –{ƒ‰ƒCƒZƒ“ƒX‚É€‹’‚µ‚È‚¢ê‡‚Í‚±‚Ìƒtƒ@ƒCƒ‹‚ğg—p‚Å‚«‚Ü‚¹‚ñB
-* –{ƒ‰ƒCƒZƒ“ƒX‚ÌƒRƒs[‚ÍAˆÈ‰º‚ÌêŠ‚©‚ç“üè‚Å‚«‚Ü‚·B
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* “K—p‚³‚ê‚é–@—ß‚Ü‚½‚Í‘–Ê‚Å‚Ì“¯ˆÓ‚É‚æ‚Á‚Ä–½‚¶‚ç‚ê‚È‚¢ŒÀ‚èA–{ƒ‰ƒCƒZƒ“ƒX‚ÉŠî‚Ã‚¢‚Ä”Ğ•z‚³‚ê‚éƒ\ƒtƒgƒEƒFƒA‚ÍA
-* –¾¦–Ù¦‚ğ–â‚í‚¸A‚¢‚©‚È‚é•ÛØ‚àğŒ‚à‚È‚µ‚ÉŒ»ó‚Ì‚Ü‚Ü
-* ”Ğ•z‚³‚ê‚Ü‚·B
-* –{ƒ‰ƒCƒZƒ“ƒX‚Å‚ÌŒ —˜‚Æ§ŒÀ‚ğ‹K’è‚µ‚½•¶Œ¾‚Â‚¢‚Ä‚ÍA
-* –{ƒ‰ƒCƒZƒ“ƒX‚ğQÆ‚µ‚Ä‚­‚¾‚³‚¢B
-*
-*/
+ï»¿#include "DxLib.h"
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "AndroidProject1.NativeActivity", __VA_ARGS__))
-#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "AndroidProject1.NativeActivity", __VA_ARGS__))
+// ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã¯ android_main ã‹ã‚‰å§‹ã¾ã‚Šã¾ã™
 
-/**
-* •Û‘¶ó‘Ô‚Ìƒf[ƒ^‚Å‚·B
-*/
-struct saved_state {
-	float angle;
-	int32_t x;
-	int32_t y;
-};
-
-/**
-* ƒAƒvƒŠ‚Ì•Û‘¶ó‘Ô‚Å‚·B
-*/
-struct engine {
-	struct android_app* app;
-
-	ASensorManager* sensorManager;
-	const ASensor* accelerometerSensor;
-	ASensorEventQueue* sensorEventQueue;
-
-	int animating;
-	EGLDisplay display;
-	EGLSurface surface;
-	EGLContext context;
-	int32_t width;
-	int32_t height;
-	struct saved_state state;
-};
-
-/**
-* Œ»İ‚Ì•\¦‚Ì EGL ƒRƒ“ƒeƒLƒXƒg‚ğ‰Šú‰»‚µ‚Ü‚·B
-*/
-static int engine_init_display(struct engine* engine) {
-	// OpenGL ES ‚Æ EGL ‚Ì‰Šú‰»
-
-	/*
-	* –Ú“I‚Ì\¬‚Ì‘®«‚ğ‚±‚±‚Åw’è‚µ‚Ü‚·B
-	* ˆÈ‰º‚ÅAƒIƒ“ƒXƒNƒŠ[ƒ“ ƒEƒBƒ“ƒhƒE‚Æ
-	* ŒİŠ·«‚Ì‚ ‚éAŠeFÅ’á 8 ƒrƒbƒg‚ÌƒRƒ“ƒ|[ƒlƒ“ƒg‚Ì EGLConfig ‚ğ‘I‘ğ‚µ‚Ü‚·
-	*/
-	const EGLint attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_BLUE_SIZE, 8,
-		EGL_GREEN_SIZE, 8,
-		EGL_RED_SIZE, 8,
-		EGL_NONE
-	};
-	EGLint w, h, format;
-	EGLint numConfigs;
-	EGLConfig config;
-	EGLSurface surface;
-	EGLContext context;
-
-	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-
-	eglInitialize(display, 0, 0);
-
-	/* ‚±‚±‚ÅAƒAƒvƒŠƒP[ƒVƒ‡ƒ“‚Í–Ú“I‚Ì\¬‚ğ‘I‘ğ‚µ‚Ü‚·B‚±‚ÌƒTƒ“ƒvƒ‹‚Å‚ÍA
-	* ’ŠoğŒ‚Æˆê’v‚·‚éÅ‰‚Ì EGLConfig ‚ğ
-	* ‘I‘ğ‚·‚é’Pƒ‚È‘I‘ğƒvƒƒZƒX‚ª‚ ‚è‚Ü‚· */
-	eglChooseConfig(display, attribs, &config, 1, &numConfigs);
-
-	/* EGL_NATIVE_VISUAL_ID ‚ÍAANativeWindow_setBuffersGeometry() ‚É
-	* ‚æ‚Á‚Äó‚¯æ‚ç‚ê‚é‚±‚Æ‚ª•ÛØ‚³‚ê‚Ä‚¢‚é EGLConfig ‚Ì‘®«‚Å‚·B
-	* EGLConfig ‚ğ‘I‘ğ‚µ‚½‚ç‚·‚®‚ÉAANativeWindow ƒoƒbƒtƒ@[‚ğˆê’v‚³‚¹‚é‚½‚ß‚É
-	* EGL_NATIVE_VISUAL_ID ‚ğg—p‚µ‚ÄˆÀ‘S‚ÉÄ\¬‚Å‚«‚Ü‚·B*/
-	eglGetConfigAttrib(display, config, EGL_NATIVE_VISUAL_ID, &format);
-
-	ANativeWindow_setBuffersGeometry(engine->app->window, 0, 0, format);
-
-	surface = eglCreateWindowSurface(display, config, engine->app->window, NULL);
-	context = eglCreateContext(display, config, NULL, NULL);
-
-	if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE) {
-		LOGW("Unable to eglMakeCurrent");
-		return -1;
-	}
-
-	eglQuerySurface(display, surface, EGL_WIDTH, &w);
-	eglQuerySurface(display, surface, EGL_HEIGHT, &h);
-
-	engine->display = display;
-	engine->context = context;
-	engine->surface = surface;
-	engine->width = w;
-	engine->height = h;
-	engine->state.angle = 0;
-
-	// GL ‚Ìó‘Ô‚ğ‰Šú‰»‚µ‚Ü‚·B
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
-	glEnable(GL_CULL_FACE);
-	glShadeModel(GL_SMOOTH);
-	glDisable(GL_DEPTH_TEST);
-
-	return 0;
+int getMod(int a, int b) {
+	int buf = a % b;
+	if (buf < 0)buf += b;
+	return buf;
 }
-
-/**
-* ƒfƒBƒXƒvƒŒƒC“à‚ÌŒ»İ‚ÌƒtƒŒ[ƒ€‚Ì‚İB
-*/
-static void engine_draw_frame(struct engine* engine) {
-	if (engine->display == NULL) {
-		// ƒfƒBƒXƒvƒŒƒC‚ª‚ ‚è‚Ü‚¹‚ñB
-		return;
+int android_main(void)
+{
+	if (DxLib_Init() == -1)		// ï¼¤ï¼¸ãƒ©ã‚¤ãƒ–ãƒ©ãƒªåˆæœŸåŒ–å‡¦ç†
+	{
+		return -1;			// ã‚¨ãƒ©ãƒ¼ãŒèµ·ããŸã‚‰ç›´ã¡ã«çµ‚äº†
 	}
 
-	// F‚Å‰æ–Ê‚ğ“h‚è‚Â‚Ô‚µ‚Ü‚·B
-	glClearColor(((float)engine->state.x) / engine->width, engine->state.angle,
-		((float)engine->state.y) / engine->height, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
+	int a[9][9];
+	int A[3][3];
+	
+	int ABC;
+	int ott;
 
-	eglSwapBuffers(engine->display, engine->surface);
-}
-
-/**
-* Œ»İƒfƒBƒXƒvƒŒƒC‚ÉŠÖ˜A•t‚¯‚ç‚ê‚Ä‚¢‚é EGL ƒRƒ“ƒeƒLƒXƒg‚ğíœ‚µ‚Ü‚·B
-*/
-static void engine_term_display(struct engine* engine) {
-	if (engine->display != EGL_NO_DISPLAY) {
-		eglMakeCurrent(engine->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-		if (engine->context != EGL_NO_CONTEXT) {
-			eglDestroyContext(engine->display, engine->context);
-		}
-		if (engine->surface != EGL_NO_SURFACE) {
-			eglDestroySurface(engine->display, engine->surface);
-		}
-		eglTerminate(engine->display);
+	for (int x = 0; x < 9; x++) {
+			
+		A[x/3][x%3] = x;
+		if (GetRand(8) == x)A[x / 3][x % 3] = 100;
 	}
-	engine->animating = 0;
-	engine->display = EGL_NO_DISPLAY;
-	engine->context = EGL_NO_CONTEXT;
-	engine->surface = EGL_NO_SURFACE;
-}
-
-/**
-* Ÿ‚Ì“ü—ÍƒCƒxƒ“ƒg‚ğˆ—‚µ‚Ü‚·B
-*/
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-	struct engine* engine = (struct engine*)app->userData;
-	if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-		engine->state.x = AMotionEvent_getX(event, 0);
-		engine->state.y = AMotionEvent_getY(event, 0);
-		return 1;
-	}
-	return 0;
-}
-
-/**
-* Ÿ‚ÌƒƒCƒ“ ƒRƒ}ƒ“ƒh‚ğˆ—‚µ‚Ü‚·B
-*/
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-	struct engine* engine = (struct engine*)app->userData;
-	switch (cmd) {
-	case APP_CMD_SAVE_STATE:
-		// Œ»İ‚Ìó‘Ô‚ğ•Û‘¶‚·‚é‚æ‚¤ƒVƒXƒeƒ€‚É‚æ‚Á‚Ä—v‹‚³‚ê‚Ü‚µ‚½B•Û‘¶‚µ‚Ä‚­‚¾‚³‚¢B
-		engine->app->savedState = malloc(sizeof(struct saved_state));
-		*((struct saved_state*)engine->app->savedState) = engine->state;
-		engine->app->savedStateSize = sizeof(struct saved_state);
-		break;
-	case APP_CMD_INIT_WINDOW:
-		// ƒEƒBƒ“ƒhƒE‚ª•\¦‚³‚ê‚Ä‚¢‚Ü‚·B€”õ‚µ‚Ä‚­‚¾‚³‚¢B
-		if (engine->app->window != NULL) {
-			engine_init_display(engine);
-			engine_draw_frame(engine);
-		}
-		break;
-	case APP_CMD_TERM_WINDOW:
-		// ƒEƒBƒ“ƒhƒE‚ª”ñ•\¦‚Ü‚½‚Í•Â‚¶‚Ä‚¢‚Ü‚·BƒNƒŠ[ƒ“ ƒAƒbƒv‚µ‚Ä‚­‚¾‚³‚¢B
-		engine_term_display(engine);
-		break;
-	case APP_CMD_GAINED_FOCUS:
-		// ƒAƒvƒŠ‚ªƒtƒH[ƒJƒX‚ğæ“¾‚·‚é‚ÆA‰Á‘¬“xŒv‚ÌŠÄ‹‚ğŠJn‚µ‚Ü‚·B
-		if (engine->accelerometerSensor != NULL) {
-			ASensorEventQueue_enableSensor(engine->sensorEventQueue,
-				engine->accelerometerSensor);
-			// –Ú•W‚Í 1 •b‚²‚Æ‚É 60 ‚ÌƒCƒxƒ“ƒg‚ğæ“¾‚·‚é‚±‚Æ‚Å‚· (•Ä‘)B
-			ASensorEventQueue_setEventRate(engine->sensorEventQueue,
-				engine->accelerometerSensor, (1000L / 60) * 1000);
-		}
-		break;
-	case APP_CMD_LOST_FOCUS:
-		// ƒAƒvƒŠ‚ªƒtƒH[ƒJƒX‚ğ¸‚¤‚ÆA‰Á‘¬“xŒv‚ÌŠÄ‹‚ğ’â~‚µ‚Ü‚·B
-		// ‚±‚ê‚É‚æ‚èAg—p‚µ‚Ä‚¢‚È‚¢‚Æ‚«‚ÌƒoƒbƒeƒŠ[‚ğß–ñ‚Å‚«‚Ü‚·B
-		if (engine->accelerometerSensor != NULL) {
-			ASensorEventQueue_disableSensor(engine->sensorEventQueue,
-				engine->accelerometerSensor);
-		}
-		// ‚Ü‚½AƒAƒjƒ[ƒVƒ‡ƒ“‚ğ’â~‚µ‚Ü‚·B
-		engine->animating = 0;
-		engine_draw_frame(engine);
-		break;
-	}
-}
-
-/**
-* ‚±‚ê‚ÍAandroid_native_app_glue ‚ğg—p‚µ‚Ä‚¢‚éƒlƒCƒeƒBƒu ƒAƒvƒŠƒP[ƒVƒ‡ƒ“
-* ‚ÌƒƒCƒ“ ƒGƒ“ƒgƒŠ ƒ|ƒCƒ“ƒg‚Å‚·B‚»‚ê©‘Ì‚ÌƒXƒŒƒbƒh‚ÅƒCƒxƒ“ƒg ƒ‹[ƒv‚É‚æ‚Á‚ÄÀs‚³‚êA
-* “ü—ÍƒCƒxƒ“ƒg‚ğó‚¯æ‚Á‚½‚è‘¼‚Ì‘€ì‚ğÀs‚µ‚½‚è‚µ‚Ü‚·B
-*/
-void android_main(struct android_app* state) {
-	struct engine engine;
-
-	memset(&engine, 0, sizeof(engine));
-	state->userData = &engine;
-	state->onAppCmd = engine_handle_cmd;
-	state->onInputEvent = engine_handle_input;
-	engine.app = state;
-
-	// ‰Á‘¬“xŒv‚ÌŠÄ‹‚Ì€”õ
-	engine.sensorManager = ASensorManager_getInstance();
-	engine.accelerometerSensor = ASensorManager_getDefaultSensor(engine.sensorManager,
-		ASENSOR_TYPE_ACCELEROMETER);
-	engine.sensorEventQueue = ASensorManager_createEventQueue(engine.sensorManager,
-		state->looper, LOOPER_ID_USER, NULL, NULL);
-
-	if (state->savedState != NULL) {
-		// ˆÈ‘O‚Ì•Û‘¶ó‘Ô‚ÅŠJn‚µ‚Ü‚·B•œŒ³‚µ‚Ä‚­‚¾‚³‚¢B
-		engine.state = *(struct saved_state*)state->savedState;
-	}
-
-	engine.animating = 1;
-
-	// ƒ‹[ƒv‚ÍƒXƒ^ƒbƒt‚É‚æ‚éŠJn‚ğ‘Ò‚Á‚Ä‚¢‚Ü‚·B
-
-	while (1) {
-		// •Û—¯’†‚Ì‚·‚×‚Ä‚ÌƒCƒxƒ“ƒg‚ğ“Ç‚İæ‚è‚Ü‚·B
-		int ident;
-		int events;
-		struct android_poll_source* source;
-
-		// ƒAƒjƒ[ƒVƒ‡ƒ“‚µ‚È‚¢ê‡A–³ŠúŒÀ‚ÉƒuƒƒbƒN‚µ‚ÄƒCƒxƒ“ƒg‚ª”­¶‚·‚é‚Ì‚ğ‘Ò‚¿‚Ü‚·B
-		// ƒAƒjƒ[ƒVƒ‡ƒ“‚·‚éê‡A‚·‚×‚Ä‚ÌƒCƒxƒ“ƒg‚ª“Ç‚İæ‚ç‚ê‚é‚Ü‚Åƒ‹[ƒv‚µ‚Ä‚©‚ç‘±s‚µ‚Ü‚·
-		// ƒAƒjƒ[ƒVƒ‡ƒ“‚ÌŸ‚ÌƒtƒŒ[ƒ€‚ğ•`‰æ‚µ‚Ü‚·B
-		while ((ident = ALooper_pollAll(engine.animating ? 0 : -1, NULL, &events,
-			(void**)&source)) >= 0) {
-
-			// ‚±‚ÌƒCƒxƒ“ƒg‚ğˆ—‚µ‚Ü‚·B
-			if (source != NULL) {
-				source->process(state, source);
-			}
-
-			// ƒZƒ“ƒT[‚Éƒf[ƒ^‚ª‚ ‚éê‡A¡‚·‚®ˆ—‚µ‚Ü‚·B
-			if (ident == LOOPER_ID_USER) {
-				if (engine.accelerometerSensor != NULL) {
-					ASensorEvent event;
-					while (ASensorEventQueue_getEvents(engine.sensorEventQueue,
-						&event, 1) > 0) {
-						LOGI("accelerometer: x=%f y=%f z=%f",
-							event.acceleration.x, event.acceleration.y,
-							event.acceleration.z);
-					}
-				}
-			}
-
-			// I—¹‚·‚é‚©‚Ç‚¤‚©Šm”F‚µ‚Ü‚·B
-			if (state->destroyRequested != 0) {
-				engine_term_display(&engine);
-				return;
-			}
-		}
-
-		if (engine.animating) {
-			// ƒCƒxƒ“ƒg‚ªŠ®—¹‚µ‚½‚çŸ‚ÌƒAƒjƒ[ƒVƒ‡ƒ“ ƒtƒŒ[ƒ€‚ğ•`‰æ‚µ‚Ü‚·B
-			engine.state.angle += .01f;
-			if (engine.state.angle > 1) {
-				engine.state.angle = 0;
-			}
-
-			// •`‰æ‚Í‰æ–Ê‚ÌXVƒŒ[ƒg‚É‡‚í‚¹‚Ä’²®‚³‚ê‚Ä‚¢‚é‚½‚ßA
-			// ‚±‚±‚ÅŠÔ’²®‚ğ‚·‚é•K—v‚Í‚ ‚è‚Ü‚¹‚ñB
-			engine_draw_frame(&engine);
+	
+	for(int x = 0; x < 9; x++){
+		for (int y = 0; y < 9; y++) {
+			ABC = getMod(x % 3 + y % 3,3);
+			ott =  getMod(x / 3 +(y - 1) + y / 3, 3);
+			a[x][y] = A[ABC][ott];
+			DrawFormatString(x*(600 / 9)+50, y*(400 / 9)+50, GetColor(255, 255, 255),"%d",a[x][y]);
 		}
 	}
+	
+	/*DrawBox(0, 0, 800, 600, GetColor(255, 255, 255), TRUE);*/	// å››è§’å½¢ã‚’æç”»ã™ã‚‹
+
+	WaitKey();				// ã‚­ãƒ¼å…¥åŠ›å¾…ã¡
+
+	DxLib_End();				// ï¼¤ï¼¸ãƒ©ã‚¤ãƒ–ãƒ©ãƒªä½¿ç”¨ã®çµ‚äº†å‡¦ç†
+
+	return 0;					// ã‚½ãƒ•ãƒˆã®çµ‚äº† 
+
+
+
 }
